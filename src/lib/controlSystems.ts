@@ -15,7 +15,6 @@ export function parsePolynomial(str: string): number[] {
 
   // Parse polynomial expression
   const terms: { coeff: number; power: number }[] = [];
-  // Normalize: add '+' before '-' for splitting
   const normalized = str.replace(/(?<=[^+\-(*^])-/g, '+-');
   const parts = normalized.split('+').filter(Boolean);
 
@@ -50,16 +49,14 @@ export function parsePolynomial(str: string): number[] {
 function tf2ss(num: number[], den: number[]): {
   A: number[][]; B: number[]; C: number[]; D: number;
 } {
-  const n = den.length - 1; // system order
+  const n = den.length - 1;
   if (n === 0) {
     return { A: [], B: [], C: [], D: num[0] / den[0] };
   }
 
-  // Normalize
   const a0 = den[0];
   const normDen = den.map(d => d / a0);
   
-  // Pad numerator
   const normNum = new Array(den.length).fill(0);
   const offset = den.length - num.length;
   for (let i = 0; i < num.length; i++) {
@@ -72,7 +69,6 @@ function tf2ss(num: number[], den: number[]): {
   const B: number[] = new Array(n).fill(0);
   const C: number[] = new Array(n).fill(0);
 
-  // Controllable canonical form
   for (let i = 0; i < n - 1; i++) {
     A[i][i + 1] = 1;
   }
@@ -138,7 +134,6 @@ function simulate(
     tArr.push(t);
     yArr.push(output(x, u));
 
-    // RK4
     const k1 = dxdt(x, u);
     const x2 = x.map((xi, i) => xi + 0.5 * dt * k1[i]);
     const k2 = dxdt(x2, input(t + 0.5 * dt));
@@ -169,10 +164,13 @@ export interface ResponseMetrics {
   peakValue: number | null;
   peakTime: number | null;
   stability: 'Stable' | 'Unstable' | 'Marginally Stable';
+  dampingRatio: number | null;
+  naturalFrequency: number | null;
+  systemType: 'Underdamped' | 'Overdamped' | 'Critically Damped' | 'First Order' | 'Higher Order' | null;
+  poles: { real: number; imag: number }[];
 }
 
 function computeRoots(den: number[]): { real: number; imag: number }[] {
-  // For 1st and 2nd order, compute analytically
   if (den.length === 2) {
     return [{ real: -den[1] / den[0], imag: 0 }];
   }
@@ -192,14 +190,12 @@ function computeRoots(den: number[]): { real: number; imag: number }[] {
       { real: realPart, imag: -imagPart },
     ];
   }
-  // For higher order, use companion matrix eigenvalues approximation
-  // Simple heuristic: check if simulation diverges
   return [];
 }
 
 function classifyStability(den: number[]): 'Stable' | 'Unstable' | 'Marginally Stable' {
   const roots = computeRoots(den);
-  if (roots.length === 0) return 'Stable'; // fallback
+  if (roots.length === 0) return 'Stable';
   const allNeg = roots.every(r => r.real < -1e-10);
   const anyPos = roots.some(r => r.real > 1e-10);
   if (allNeg) return 'Stable';
@@ -207,13 +203,35 @@ function classifyStability(den: number[]): 'Stable' | 'Unstable' | 'Marginally S
   return 'Marginally Stable';
 }
 
+function classifySystem(den: number[]): {
+  dampingRatio: number | null;
+  naturalFrequency: number | null;
+  systemType: ResponseMetrics['systemType'];
+} {
+  if (den.length === 2) {
+    return { dampingRatio: null, naturalFrequency: null, systemType: 'First Order' };
+  }
+  if (den.length === 3) {
+    const a = den[0], b = den[1], c = den[2];
+    const wn = Math.sqrt(c / a);
+    const zeta = b / (2 * a * wn);
+    let systemType: ResponseMetrics['systemType'];
+    if (Math.abs(zeta - 1) < 1e-6) systemType = 'Critically Damped';
+    else if (zeta < 1) systemType = 'Underdamped';
+    else systemType = 'Overdamped';
+    return { dampingRatio: zeta, naturalFrequency: wn, systemType };
+  }
+  return { dampingRatio: null, naturalFrequency: null, systemType: 'Higher Order' };
+}
+
 function computeMetrics(t: number[], y: number[], inputType: 'step' | 'impulse'): ResponseMetrics {
   const n = y.length;
   const steadyState = inputType === 'step' ? y[n - 1] : 0;
   
-  let peakValue = -Infinity;
-  let peakTime = 0;
-  for (let i = 0; i < n; i++) {
+  // Compute peak value and peak time correctly
+  let peakValue = y[0];
+  let peakTime = t[0];
+  for (let i = 1; i < n; i++) {
     if (Math.abs(y[i]) > Math.abs(peakValue)) {
       peakValue = y[i];
       peakTime = t[i];
@@ -231,8 +249,8 @@ function computeMetrics(t: number[], y: number[], inputType: 'step' | 'impulse')
     let t10: number | null = null;
     let t90: number | null = null;
     for (let i = 0; i < n; i++) {
-      if (t10 === null && y[i] >= y10) t10 = t[i];
-      if (t90 === null && y[i] >= y90) t90 = t[i];
+      if (t10 === null && ((steadyState > 0 && y[i] >= y10) || (steadyState < 0 && y[i] <= y10))) t10 = t[i];
+      if (t90 === null && ((steadyState > 0 && y[i] >= y90) || (steadyState < 0 && y[i] <= y90))) t90 = t[i];
     }
     riseTime = t10 !== null && t90 !== null ? t90 - t10 : null;
 
@@ -247,9 +265,12 @@ function computeMetrics(t: number[], y: number[], inputType: 'step' | 'impulse')
     }
 
     // Overshoot
-    overshoot = steadyState > 0
-      ? Math.max(0, ((peakValue - steadyState) / steadyState) * 100)
-      : null;
+    if (steadyState > 0) {
+      overshoot = Math.max(0, ((peakValue - steadyState) / steadyState) * 100);
+    } else if (steadyState < 0) {
+      const minVal = Math.min(...y);
+      overshoot = Math.max(0, ((steadyState - minVal) / Math.abs(steadyState)) * 100);
+    }
   }
 
   return {
@@ -259,7 +280,11 @@ function computeMetrics(t: number[], y: number[], inputType: 'step' | 'impulse')
     steadyStateValue: inputType === 'step' ? steadyState : null,
     peakValue,
     peakTime,
-    stability: 'Stable', // overridden by caller
+    stability: 'Stable',
+    dampingRatio: null,
+    naturalFrequency: null,
+    systemType: null,
+    poles: [],
   };
 }
 
@@ -281,6 +306,12 @@ export function simulateSystem(
   const { t, y } = simulate(A, B, C, D, inputFn, tEnd, dt);
   const metrics = computeMetrics(t, y, inputType);
   metrics.stability = classifyStability(den);
+  
+  const classification = classifySystem(den);
+  metrics.dampingRatio = classification.dampingRatio;
+  metrics.naturalFrequency = classification.naturalFrequency;
+  metrics.systemType = classification.systemType;
+  metrics.poles = computeRoots(den);
 
   return { t, y, metrics };
 }
@@ -298,3 +329,10 @@ export const presetSystems: PresetSystem[] = [
   { name: 'Critically Damped', numerator: '4', denominator: 's^2 + 4s + 4', description: 'ζ = 1, ωn = 2' },
   { name: 'Overdamped System', numerator: '2', denominator: 's^2 + 5s + 2', description: 'ζ > 1' },
 ];
+
+export function formatPole(pole: { real: number; imag: number }): string {
+  const r = pole.real.toFixed(3);
+  if (Math.abs(pole.imag) < 1e-10) return r;
+  const sign = pole.imag > 0 ? '+' : '-';
+  return `${r} ${sign} ${Math.abs(pole.imag).toFixed(3)}j`;
+}
