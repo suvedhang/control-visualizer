@@ -1,0 +1,87 @@
+import { useMemo } from "react";
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
+} from "recharts";
+import type { SimulationResult } from "@/lib/controlSystems";
+
+interface ResponseGraphProps {
+  result: SimulationResult | null;
+  inputType: "step" | "impulse";
+}
+
+export default function ResponseGraph({ result, inputType }: ResponseGraphProps) {
+  const data = useMemo(() => {
+    if (!result) return [];
+    // Downsample for rendering
+    const step = Math.max(1, Math.floor(result.t.length / 500));
+    const points: { t: number; y: number }[] = [];
+    for (let i = 0; i < result.t.length; i += step) {
+      points.push({ t: parseFloat(result.t[i].toFixed(4)), y: parseFloat(result.y[i].toFixed(6)) });
+    }
+    return points;
+  }, [result]);
+
+  const title = inputType === "step" ? "Step Response" : "Impulse Response";
+
+  return (
+    <div className="h-full flex flex-col">
+      <h3 className="text-sm font-medium text-muted-foreground mb-2 font-mono tracking-wider uppercase">
+        {title}
+      </h3>
+      <div className="flex-1 min-h-0">
+        {data.length === 0 ? (
+          <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+            <span className="font-mono opacity-50">Awaiting simulation...</span>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data} margin={{ top: 10, right: 20, bottom: 20, left: 10 }}>
+              <CartesianGrid stroke="hsl(220 20% 14%)" strokeDasharray="3 3" />
+              <XAxis
+                dataKey="t"
+                stroke="hsl(218 11% 65%)"
+                fontSize={11}
+                fontFamily="JetBrains Mono"
+                label={{ value: "Time (s)", position: "insideBottom", offset: -10, fill: "hsl(218 11% 65%)", fontSize: 11 }}
+              />
+              <YAxis
+                stroke="hsl(218 11% 65%)"
+                fontSize={11}
+                fontFamily="JetBrains Mono"
+                label={{ value: "Amplitude", angle: -90, position: "insideLeft", offset: 5, fill: "hsl(218 11% 65%)", fontSize: 11 }}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "hsl(220 40% 9%)",
+                  border: "1px solid hsl(220 20% 18%)",
+                  borderRadius: "6px",
+                  fontFamily: "JetBrains Mono",
+                  fontSize: "12px",
+                  color: "hsl(216 20% 90%)",
+                }}
+                labelFormatter={(v) => `t = ${v}s`}
+                formatter={(v: number) => [v.toFixed(4), "y(t)"]}
+              />
+              {inputType === "step" && result?.metrics.steadyStateValue != null && (
+                <ReferenceLine
+                  y={result.metrics.steadyStateValue}
+                  stroke="hsl(142 71% 45%)"
+                  strokeDasharray="5 5"
+                  strokeOpacity={0.6}
+                />
+              )}
+              <Line
+                type="monotone"
+                dataKey="y"
+                stroke="hsl(217 91% 60%)"
+                strokeWidth={2}
+                dot={false}
+                animationDuration={300}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+    </div>
+  );
+}
