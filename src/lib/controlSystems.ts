@@ -3,17 +3,14 @@ export function parsePolynomial(str: string): number[] {
   str = str.replace(/\s/g, '');
   if (!str) return [0];
   
-  // Try comma-separated coefficients first: "1, 3, 2"
   if (/^[\d.,\s-]+$/.test(str.replace(/\s/g, '')) && str.includes(',')) {
     return str.split(',').map(s => parseFloat(s.trim()));
   }
   
-  // Try single number
   if (/^-?[\d.]+$/.test(str)) {
     return [parseFloat(str)];
   }
 
-  // Parse polynomial expression
   const terms: { coeff: number; power: number }[] = [];
   const normalized = str.replace(/(?<=[^+\-(*^])-/g, '+-');
   const parts = normalized.split('+').filter(Boolean);
@@ -45,7 +42,6 @@ export function parsePolynomial(str: string): number[] {
   return coeffs;
 }
 
-// Convert transfer function to state-space (controllable canonical form)
 function tf2ss(num: number[], den: number[]): {
   A: number[][]; B: number[]; C: number[]; D: number;
 } {
@@ -56,7 +52,6 @@ function tf2ss(num: number[], den: number[]): {
 
   const a0 = den[0];
   const normDen = den.map(d => d / a0);
-  
   const normNum = new Array(den.length).fill(0);
   const offset = den.length - num.length;
   for (let i = 0; i < num.length; i++) {
@@ -64,7 +59,6 @@ function tf2ss(num: number[], den: number[]): {
   }
 
   const D = normNum[0];
-  
   const A: number[][] = Array.from({ length: n }, () => new Array(n).fill(0));
   const B: number[] = new Array(n).fill(0);
   const C: number[] = new Array(n).fill(0);
@@ -75,9 +69,7 @@ function tf2ss(num: number[], den: number[]): {
   for (let i = 0; i < n; i++) {
     A[n - 1][i] = -normDen[n - i];
   }
-
   B[n - 1] = 1;
-
   for (let i = 0; i < n; i++) {
     C[i] = normNum[n - i] - normDen[n - i] * D;
   }
@@ -85,7 +77,6 @@ function tf2ss(num: number[], den: number[]): {
   return { A, B, C, D };
 }
 
-// RK4 integration
 function simulate(
   A: number[][], B: number[], C: number[], D: number,
   input: (t: number) => number,
@@ -156,6 +147,13 @@ export interface SimulationResult {
   metrics: ResponseMetrics;
 }
 
+export interface TheoreticalMetrics {
+  overshoot: number | null;
+  settlingTime: number | null;
+  riseTime: number | null;
+  peakTime: number | null;
+}
+
 export interface ResponseMetrics {
   riseTime: number | null;
   settlingTime: number | null;
@@ -168,6 +166,10 @@ export interface ResponseMetrics {
   naturalFrequency: number | null;
   systemType: 'Underdamped' | 'Overdamped' | 'Critically Damped' | 'First Order' | 'Higher Order' | null;
   poles: { real: number; imag: number }[];
+  theoretical: TheoreticalMetrics;
+  // Impulse-specific
+  decayRate: number | null;
+  energy: number | null;
 }
 
 function computeRoots(den: number[]): { real: number; imag: number }[] {
@@ -224,11 +226,23 @@ function classifySystem(den: number[]): {
   return { dampingRatio: null, naturalFrequency: null, systemType: 'Higher Order' };
 }
 
-function computeMetrics(t: number[], y: number[], inputType: 'step' | 'impulse'): ResponseMetrics {
+function computeTheoreticalMetrics(zeta: number | null, wn: number | null): TheoreticalMetrics {
+  if (zeta == null || wn == null || zeta >= 1) {
+    return { overshoot: null, settlingTime: null, riseTime: null, peakTime: null };
+  }
+  const wd = wn * Math.sqrt(1 - zeta * zeta);
+  const overshoot = Math.exp((-zeta * Math.PI) / Math.sqrt(1 - zeta * zeta)) * 100;
+  const settlingTime = 4 / (zeta * wn);
+  const peakTime = Math.PI / wd;
+  // Approximate rise time for underdamped 2nd order
+  const riseTime = (Math.PI - Math.acos(zeta)) / wd;
+  return { overshoot, settlingTime, riseTime, peakTime };
+}
+
+function computeMetrics(t: number[], y: number[], inputType: 'step' | 'impulse', dt: number): Omit<ResponseMetrics, 'stability' | 'dampingRatio' | 'naturalFrequency' | 'systemType' | 'poles' | 'theoretical'> {
   const n = y.length;
   const steadyState = inputType === 'step' ? y[n - 1] : 0;
   
-  // Compute peak value and peak time correctly
   let peakValue = y[0];
   let peakTime = t[0];
   for (let i = 1; i < n; i++) {
@@ -243,7 +257,6 @@ function computeMetrics(t: number[], y: number[], inputType: 'step' | 'impulse')
   let overshoot: number | null = null;
 
   if (inputType === 'step' && Math.abs(steadyState) > 1e-10) {
-    // Rise time: 10% to 90%
     const y10 = 0.1 * steadyState;
     const y90 = 0.9 * steadyState;
     let t10: number | null = null;
@@ -254,7 +267,6 @@ function computeMetrics(t: number[], y: number[], inputType: 'step' | 'impulse')
     }
     riseTime = t10 !== null && t90 !== null ? t90 - t10 : null;
 
-    // Settling time (2% band)
     const band = 0.02 * Math.abs(steadyState);
     settlingTime = null;
     for (let i = n - 1; i >= 0; i--) {
@@ -264,12 +276,38 @@ function computeMetrics(t: number[], y: number[], inputType: 'step' | 'impulse')
       }
     }
 
-    // Overshoot
     if (steadyState > 0) {
       overshoot = Math.max(0, ((peakValue - steadyState) / steadyState) * 100);
     } else if (steadyState < 0) {
       const minVal = Math.min(...y);
       overshoot = Math.max(0, ((steadyState - minVal) / Math.abs(steadyState)) * 100);
+    }
+  }
+
+  // Impulse-specific metrics
+  let decayRate: number | null = null;
+  let energy: number | null = null;
+
+  if (inputType === 'impulse') {
+    // Energy: integral of y^2 dt (trapezoidal)
+    let e = 0;
+    for (let i = 1; i < n; i++) {
+      e += 0.5 * (y[i] * y[i] + y[i - 1] * y[i - 1]) * dt;
+    }
+    energy = e;
+
+    // Decay rate: fit exponential envelope from peak onward
+    const peakIdx = y.indexOf(peakValue);
+    if (peakIdx >= 0 && peakIdx < n - 10) {
+      // Find where |y| drops to 37% (1/e) of peak
+      const threshold = Math.abs(peakValue) * 0.3679;
+      for (let i = peakIdx + 1; i < n; i++) {
+        if (Math.abs(y[i]) <= threshold) {
+          const dt_decay = t[i] - t[peakIdx];
+          if (dt_decay > 0) decayRate = 1 / dt_decay;
+          break;
+        }
+      }
     }
   }
 
@@ -280,11 +318,8 @@ function computeMetrics(t: number[], y: number[], inputType: 'step' | 'impulse')
     steadyStateValue: inputType === 'step' ? steadyState : null,
     peakValue,
     peakTime,
-    stability: 'Stable',
-    dampingRatio: null,
-    naturalFrequency: null,
-    systemType: null,
-    poles: [],
+    decayRate,
+    energy,
   };
 }
 
@@ -304,16 +339,31 @@ export function simulateSystem(
     : (t: number) => (t < dt ? 1 / dt : 0);
 
   const { t, y } = simulate(A, B, C, D, inputFn, tEnd, dt);
-  const metrics = computeMetrics(t, y, inputType);
-  metrics.stability = classifyStability(den);
-  
+  const baseMetrics = computeMetrics(t, y, inputType, dt);
   const classification = classifySystem(den);
-  metrics.dampingRatio = classification.dampingRatio;
-  metrics.naturalFrequency = classification.naturalFrequency;
-  metrics.systemType = classification.systemType;
-  metrics.poles = computeRoots(den);
+  const theoretical = computeTheoreticalMetrics(classification.dampingRatio, classification.naturalFrequency);
+
+  const metrics: ResponseMetrics = {
+    ...baseMetrics,
+    stability: classifyStability(den),
+    dampingRatio: classification.dampingRatio,
+    naturalFrequency: classification.naturalFrequency,
+    systemType: classification.systemType,
+    poles: computeRoots(den),
+    theoretical,
+  };
 
   return { t, y, metrics };
+}
+
+/** Build transfer function from 2nd-order parameters */
+export function buildSecondOrderTF(zeta: number, wn: number): { numerator: string; denominator: string } {
+  const wn2 = wn * wn;
+  const b = 2 * zeta * wn;
+  return {
+    numerator: wn2.toFixed(4),
+    denominator: `s^2 + ${b.toFixed(4)}s + ${wn2.toFixed(4)}`,
+  };
 }
 
 export interface PresetSystem {

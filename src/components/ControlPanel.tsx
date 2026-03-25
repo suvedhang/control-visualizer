@@ -1,17 +1,14 @@
-import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Play } from "lucide-react";
 
 interface ControlPanelProps {
   inputType: "step" | "impulse";
   onInputTypeChange: (v: "step" | "impulse") => void;
   timeRange: number;
   onTimeRangeChange: (v: number) => void;
-  onSimulate: () => void;
 }
 
 export default function ControlPanel({
-  inputType, onInputTypeChange, timeRange, onTimeRangeChange, onSimulate,
+  inputType, onInputTypeChange, timeRange, onTimeRangeChange,
 }: ControlPanelProps) {
   return (
     <div className="space-y-6">
@@ -50,14 +47,9 @@ export default function ControlPanel({
         />
       </div>
 
-      <Button
-        onClick={onSimulate}
-        className="w-full bg-primary text-primary-foreground hover:bg-primary/90 glow-primary font-mono tracking-wider"
-        size="lg"
-      >
-        <Play className="w-4 h-4 mr-2" />
-        Simulate
-      </Button>
+      <div className="text-xs font-mono text-muted-foreground/60 mt-4">
+        Auto-simulates on change
+      </div>
     </div>
   );
 }

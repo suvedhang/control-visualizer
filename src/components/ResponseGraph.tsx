@@ -35,8 +35,18 @@ export default function ResponseGraph({ result, inputType }: ResponseGraphProps)
     return { t: parseFloat(result.metrics.peakTime.toFixed(4)), y: parseFloat(result.metrics.peakValue.toFixed(6)) };
   }, [result]);
 
-  // Compute tick count based on time range
-  const tickCount = 8;
+  // Generate explicit ticks - max 6
+  const xTicks = useMemo(() => {
+    if (!result || result.t.length === 0) return [];
+    const tMax = result.t[result.t.length - 1];
+    const count = 6;
+    const step = tMax / (count - 1);
+    const ticks: number[] = [];
+    for (let i = 0; i < count; i++) {
+      ticks.push(parseFloat((i * step).toFixed(2)));
+    }
+    return ticks;
+  }, [result]);
 
   return (
     <div className="h-full flex flex-col">
@@ -50,14 +60,16 @@ export default function ResponseGraph({ result, inputType }: ResponseGraphProps)
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 10, right: 20, bottom: 20, left: 10 }}>
+            <LineChart data={data} margin={{ top: 10, right: 20, bottom: 20, left: 15 }}>
               <CartesianGrid stroke="hsl(220 20% 14%)" strokeDasharray="3 3" />
               <XAxis
                 dataKey="t"
+                type="number"
+                domain={["dataMin", "dataMax"]}
+                ticks={xTicks}
                 stroke="hsl(218 11% 65%)"
                 fontSize={11}
                 fontFamily="JetBrains Mono"
-                tickCount={tickCount}
                 tickFormatter={(v: number) => v.toFixed(2)}
                 label={{ value: "Time (s)", position: "insideBottom", offset: -10, fill: "hsl(218 11% 65%)", fontSize: 11 }}
               />
@@ -66,7 +78,8 @@ export default function ResponseGraph({ result, inputType }: ResponseGraphProps)
                 fontSize={11}
                 fontFamily="JetBrains Mono"
                 tickFormatter={(v: number) => v.toFixed(2)}
-                label={{ value: "Amplitude", angle: -90, position: "insideLeft", offset: 5, fill: "hsl(218 11% 65%)", fontSize: 11 }}
+                width={55}
+                label={{ value: "Amplitude", angle: -90, position: "insideLeft", offset: 0, fill: "hsl(218 11% 65%)", fontSize: 11 }}
               />
               <Tooltip
                 contentStyle={{
