@@ -1,14 +1,16 @@
 import { Slider } from "@/components/ui/slider";
+import { Button } from "@/components/ui/button";
 
 interface ControlPanelProps {
   inputType: "step" | "impulse";
   onInputTypeChange: (v: "step" | "impulse") => void;
   timeRange: number;
   onTimeRangeChange: (v: number) => void;
+  onSimulate: () => void;
 }
 
 export default function ControlPanel({
-  inputType, onInputTypeChange, timeRange, onTimeRangeChange,
+  inputType, onInputTypeChange, timeRange, onTimeRangeChange, onSimulate,
 }: ControlPanelProps) {
   return (
     <div className="space-y-6">
@@ -48,8 +50,15 @@ export default function ControlPanel({
       </div>
 
       <div className="text-xs font-mono text-muted-foreground/60 mt-4">
-        Auto-simulates on change
+        Manual simulation
       </div>
+
+      <Button 
+        onClick={onSimulate}
+        className="w-full mt-4 font-mono text-sm"
+      >
+        Simulate
+      </Button>
     </div>
   );
 }

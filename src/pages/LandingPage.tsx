@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Activity, Zap, Target, TrendingUp } from "lucide-react";
+import SoftAurora from "@/components/SoftAurora";
 
 const concepts = [
   { icon: Activity, label: "Transfer Function Modeling" },
@@ -15,11 +16,12 @@ interface LandingPageProps {
 export default function LandingPage({ onStart }: LandingPageProps) {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden">
-      {/* Background grid effect */}
-      <div className="absolute inset-0 bg-[linear-gradient(hsl(220_20%_14%/0.5)_1px,transparent_1px),linear-gradient(90deg,hsl(220_20%_14%/0.5)_1px,transparent_1px)] bg-[size:60px_60px]" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,hsl(217_91%_60%/0.08)_0%,transparent_70%)]" />
+      {/* SoftAurora background effect */}
+      <div className="absolute inset-0 pointer-events-none">
+        <SoftAurora />
+      </div>
 
-      <div className="relative z-10 text-center px-6 max-w-3xl">
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6 max-w-3xl">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 mb-8 animate-slide-up" style={{ animationDelay: "0ms" }}>
           <div className="w-2 h-2 rounded-full bg-primary animate-pulse-glow" />
           <span className="text-xs font-mono text-primary tracking-wider">CONTROL SYSTEMS</span>
@@ -44,17 +46,86 @@ export default function LandingPage({ onStart }: LandingPageProps) {
         </Button>
       </div>
 
-      <div className="relative z-10 mt-20 grid grid-cols-2 md:grid-cols-4 gap-4 px-6 max-w-4xl w-full">
+      <div className="relative z-10 mt-16 grid grid-cols-2 md:grid-cols-4 gap-6 px-6 max-w-5xl w-full mb-8">
         {concepts.map((c, i) => (
           <div
             key={c.label}
-            className="flex flex-col items-center gap-2 p-4 rounded-lg bg-card/50 panel-border backdrop-blur-sm animate-slide-up"
+            className="flex flex-col items-center gap-3 p-6 rounded-xl bg-card/50 panel-border backdrop-blur-sm animate-slide-up hover:bg-card/70 transition-colors"
             style={{ animationDelay: `${400 + i * 100}ms`, animationFillMode: "both" }}
           >
-            <c.icon className="w-5 h-5 text-primary" />
-            <span className="text-xs font-mono text-muted-foreground text-center">{c.label}</span>
+            <c.icon className="w-6 h-6 text-primary" />
+            <span className="text-xs font-mono text-muted-foreground text-center leading-tight">{c.label}</span>
           </div>
         ))}
+      </div>
+
+      <div className="relative z-10 mt-20 px-6 max-w-5xl w-full pb-16">
+        <h2 className="text-center text-xs font-mono tracking-widest uppercase text-primary mb-16 font-semibold">Fundamental Equations</h2>
+        <div className="space-y-8">
+          {/* Transfer Function */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+            <div className="p-8 rounded-xl bg-card/50 panel-border backdrop-blur-sm border border-primary/10 hover:border-primary/20 transition-colors">
+              <p className="text-xs font-mono text-primary/70 mb-4 tracking-wider">TRANSFER FUNCTION</p>
+              <div className="text-center font-mono text-foreground">
+                <div className="text-2xl font-semibold">G(s) = N(s) / D(s)</div>
+              </div>
+            </div>
+            <div className="p-8 rounded-xl bg-muted/20 border border-muted/30 hover:border-muted/50 transition-colors">
+              <p className="text-xs font-mono text-muted-foreground/80 mb-4 tracking-wider">DEFINITION</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Represents the ratio of system output to input in Laplace domain. N(s) is the numerator polynomial and D(s) is the denominator polynomial.
+              </p>
+            </div>
+          </div>
+
+          {/* Second-Order System */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center md:flex-row-reverse">
+            <div className="p-8 rounded-xl bg-card/50 panel-border backdrop-blur-sm border border-primary/10 hover:border-primary/20 transition-colors md:order-2">
+              <p className="text-xs font-mono text-primary/70 mb-4 tracking-wider">SECOND-ORDER SYSTEM</p>
+              <div className="text-center font-mono text-foreground">
+                <div className="text-2xl font-semibold">G(s) = ωn² / (s² + 2ζωn·s + ωn²)</div>
+              </div>
+            </div>
+            <div className="p-8 rounded-xl bg-muted/20 border border-muted/30 hover:border-muted/50 transition-colors md:order-1">
+              <p className="text-xs font-mono text-muted-foreground/80 mb-4 tracking-wider">PARAMETERS</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                ωn = Natural frequency (rad/s), ζ = Damping ratio. This canonical form describes most physical systems with oscillatory behavior.
+              </p>
+            </div>
+          </div>
+
+          {/* Step Response */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+            <div className="p-8 rounded-xl bg-card/50 panel-border backdrop-blur-sm border border-primary/10 hover:border-primary/20 transition-colors">
+              <p className="text-xs font-mono text-primary/70 mb-4 tracking-wider">STEP RESPONSE</p>
+              <div className="text-center font-mono text-foreground">
+                <div className="text-2xl font-semibold">Y(s) = G(s) / s</div>
+              </div>
+            </div>
+            <div className="p-8 rounded-xl bg-muted/20 border border-muted/30 hover:border-muted/50 transition-colors">
+              <p className="text-xs font-mono text-muted-foreground/80 mb-4 tracking-wider">DESCRIPTION</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                System output when subjected to a unit step input. Shows transient response, overshoot, settling time, and steady-state behavior.
+              </p>
+            </div>
+          </div>
+
+          {/* Impulse Response */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center md:flex-row-reverse">
+            <div className="p-8 rounded-xl bg-card/50 panel-border backdrop-blur-sm border border-primary/10 hover:border-primary/20 transition-colors md:order-2">
+              <p className="text-xs font-mono text-primary/70 mb-4 tracking-wider">IMPULSE RESPONSE</p>
+              <div className="text-center font-mono text-foreground">
+                <div className="text-2xl font-semibold">Y(s) = G(s)</div>
+              </div>
+            </div>
+            <div className="p-8 rounded-xl bg-muted/20 border border-muted/30 hover:border-muted/50 transition-colors md:order-1">
+              <p className="text-xs font-mono text-muted-foreground/80 mb-4 tracking-wider">DESCRIPTION</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                System output for an impulse input (Dirac delta). Directly shows the system's natural dynamics and pole locations.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

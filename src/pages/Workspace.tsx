@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import SystemInput from "@/components/SystemInput";
 import ControlPanel from "@/components/ControlPanel";
 import ResponseGraph from "@/components/ResponseGraph";
@@ -22,8 +22,6 @@ export default function Workspace({ onBack }: WorkspaceProps) {
   const [zeta, setZeta] = useState(0.3);
   const [wn, setWn] = useState(2);
 
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const runSimulation = useCallback((num: string, den: string, iType: "step" | "impulse", tEnd: number) => {
     try {
       const res = simulateSystem(num, den, iType, tEnd);
@@ -32,17 +30,6 @@ export default function Workspace({ onBack }: WorkspaceProps) {
       console.error("Simulation error:", e);
     }
   }, []);
-
-  // Auto-simulate with debounce
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      runSimulation(numerator, denominator, inputType, timeRange);
-    }, 300);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [numerator, denominator, inputType, timeRange, runSimulation]);
 
   // Parameter mode: update TF from sliders
   useEffect(() => {
@@ -163,6 +150,7 @@ export default function Workspace({ onBack }: WorkspaceProps) {
             onInputTypeChange={setInputType}
             timeRange={timeRange}
             onTimeRangeChange={setTimeRange}
+            onSimulate={() => runSimulation(numerator, denominator, inputType, timeRange)}
           />
         </aside>
       </div>
