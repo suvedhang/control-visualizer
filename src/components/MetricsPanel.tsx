@@ -6,7 +6,7 @@ interface MetricsPanelProps {
   inputType: "step" | "impulse";
 }
 
-function MetricCard({ label, value, unit }: { label: string; value: string; unit?: string }) {
+function MetricCard({ label, value, unit, secondary }: { label: string; value: string; unit?: string; secondary?: string }) {
   return (
     <div className="bg-muted rounded-lg p-3 panel-border">
       <div className="text-xs font-mono text-muted-foreground tracking-wider uppercase mb-1">
@@ -16,6 +16,11 @@ function MetricCard({ label, value, unit }: { label: string; value: string; unit
         {value}
         {unit && <span className="text-xs text-muted-foreground ml-1">{unit}</span>}
       </div>
+      {secondary && (
+        <div className="text-xs font-mono text-accent mt-1 opacity-80">
+          Theory: {secondary}
+        </div>
+      )}
     </div>
   );
 }
@@ -39,19 +44,50 @@ export default function MetricsPanel({ metrics, inputType }: MetricsPanelProps) 
         ? "text-destructive"
         : "text-accent";
 
+  const theo = metrics.theoretical;
+
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
         {inputType === "step" && (
           <>
-            <MetricCard label="Rise Time" value={fmt(metrics.riseTime)} unit="s" />
-            <MetricCard label="Settling Time" value={fmt(metrics.settlingTime)} unit="s" />
-            <MetricCard label="Overshoot" value={fmt(metrics.overshoot, 2)} unit="%" />
+            <MetricCard
+              label="Rise Time"
+              value={fmt(metrics.riseTime)}
+              unit="s"
+              secondary={theo.riseTime != null ? `${theo.riseTime.toFixed(4)}s` : undefined}
+            />
+            <MetricCard
+              label="Settling Time"
+              value={fmt(metrics.settlingTime)}
+              unit="s"
+              secondary={theo.settlingTime != null ? `${theo.settlingTime.toFixed(4)}s` : undefined}
+            />
+            <MetricCard
+              label="Overshoot"
+              value={fmt(metrics.overshoot, 2)}
+              unit="%"
+              secondary={theo.overshoot != null ? `${theo.overshoot.toFixed(2)}%` : undefined}
+            />
             <MetricCard label="Steady State" value={fmt(metrics.steadyStateValue)} />
           </>
         )}
-        <MetricCard label="Peak Value" value={fmt(metrics.peakValue)} />
-        <MetricCard label="Peak Time" value={fmt(metrics.peakTime)} unit="s" />
+        <MetricCard
+          label="Peak Value"
+          value={fmt(metrics.peakValue)}
+        />
+        <MetricCard
+          label="Peak Time"
+          value={fmt(metrics.peakTime)}
+          unit="s"
+          secondary={inputType === "step" && theo.peakTime != null ? `${theo.peakTime.toFixed(4)}s` : undefined}
+        />
+        {inputType === "impulse" && (
+          <>
+            <MetricCard label="Decay Rate" value={metrics.decayRate != null ? fmt(metrics.decayRate) : "—"} unit="1/s" />
+            <MetricCard label="Signal Energy" value={metrics.energy != null ? fmt(metrics.energy) : "—"} />
+          </>
+        )}
         <div className="bg-muted rounded-lg p-3 panel-border">
           <div className="text-xs font-mono text-muted-foreground tracking-wider uppercase mb-1">
             Stability
@@ -62,7 +98,6 @@ export default function MetricsPanel({ metrics, inputType }: MetricsPanelProps) 
         </div>
       </div>
 
-      {/* System classification row */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
         {metrics.systemType && (
           <MetricCard label="System Type" value={metrics.systemType} />

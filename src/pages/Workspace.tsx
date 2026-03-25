@@ -1,10 +1,12 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import SystemInput from "@/components/SystemInput";
 import ControlPanel from "@/components/ControlPanel";
 import ResponseGraph from "@/components/ResponseGraph";
 import MetricsPanel from "@/components/MetricsPanel";
-import { simulateSystem, type SimulationResult } from "@/lib/controlSystems";
+import PoleZeroPlot from "@/components/PoleZeroPlot";
+import { simulateSystem, buildSecondOrderTF, type SimulationResult } from "@/lib/controlSystems";
 import { ArrowLeft } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface WorkspaceProps {
   onBack: () => void;
@@ -16,27 +18,54 @@ export default function Workspace({ onBack }: WorkspaceProps) {
   const [inputType, setInputType] = useState<"step" | "impulse">("step");
   const [timeRange, setTimeRange] = useState(10);
   const [result, setResult] = useState<SimulationResult | null>(null);
+  const [paramMode, setParamMode] = useState(false);
+  const [zeta, setZeta] = useState(0.3);
+  const [wn, setWn] = useState(2);
 
-  const handleSimulate = useCallback(() => {
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const runSimulation = useCallback((num: string, den: string, iType: "step" | "impulse", tEnd: number) => {
     try {
-      const res = simulateSystem(numerator, denominator, inputType, timeRange);
+      const res = simulateSystem(num, den, iType, tEnd);
       setResult(res);
     } catch (e) {
       console.error("Simulation error:", e);
     }
-  }, [numerator, denominator, inputType, timeRange]);
+  }, []);
+
+  // Auto-simulate with debounce
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      runSimulation(numerator, denominator, inputType, timeRange);
+    }, 300);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [numerator, denominator, inputType, timeRange, runSimulation]);
+
+  // Parameter mode: update TF from sliders
+  useEffect(() => {
+    if (!paramMode) return;
+    const tf = buildSecondOrderTF(zeta, wn);
+    setNumerator(tf.numerator);
+    setDenominator(tf.denominator);
+  }, [zeta, wn, paramMode]);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {/* Header */}
-      <header className="h-12 flex items-center px-4 border-b border-border bg-card/50 backdrop-blur-sm shrink-0">
+      <header className="h-14 flex items-center px-4 border-b border-border bg-card/50 backdrop-blur-sm shrink-0">
         <button onClick={onBack} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors text-sm font-mono">
           <ArrowLeft className="w-4 h-4" />
           Back
         </button>
         <div className="flex-1 text-center">
           <span className="text-sm font-mono text-muted-foreground tracking-wider">
-            G(s) = <span className="text-foreground">{numerator}</span> / <span className="text-foreground">{denominator}</span>
+            G(s) ={" "}
+            <span className="text-foreground">{numerator}</span>
+            {" "}/{" "}
+            <span className="text-foreground">({denominator})</span>
           </span>
         </div>
         <div className="w-16" />
@@ -53,12 +82,71 @@ export default function Workspace({ onBack }: WorkspaceProps) {
             onNumeratorChange={setNumerator}
             onDenominatorChange={setDenominator}
           />
+
+          {/* Parameter Mode Toggle */}
+          <div className="mt-6 space-y-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={paramMode}
+                onChange={(e) => setParamMode(e.target.checked)}
+                className="rounded border-border bg-muted accent-primary"
+              />
+              <span className="text-xs font-mono text-muted-foreground tracking-wider uppercase">
+                2nd-Order Parameter Mode
+              </span>
+            </label>
+
+            {paramMode && (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs text-muted-foreground font-mono mb-1 block">
+                    ζ (Damping Ratio): <span className="text-foreground">{zeta.toFixed(2)}</span>
+                  </label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={2}
+                    step={0.01}
+                    value={zeta}
+                    onChange={(e) => setZeta(parseFloat(e.target.value))}
+                    className="w-full accent-primary"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground font-mono mb-1 block">
+                    ωn (Natural Freq): <span className="text-foreground">{wn.toFixed(1)} rad/s</span>
+                  </label>
+                  <input
+                    type="range"
+                    min={0.5}
+                    max={10}
+                    step={0.1}
+                    value={wn}
+                    onChange={(e) => setWn(parseFloat(e.target.value))}
+                    className="w-full accent-primary"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </aside>
 
         {/* Center Panel */}
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <div className="flex-1 p-4 min-h-[300px]">
-            <ResponseGraph result={result} inputType={inputType} />
+            <Tabs defaultValue="response" className="h-full flex flex-col">
+              <TabsList className="bg-muted self-start mb-2">
+                <TabsTrigger value="response" className="font-mono text-xs">Response</TabsTrigger>
+                <TabsTrigger value="poles" className="font-mono text-xs">Pole-Zero Map</TabsTrigger>
+              </TabsList>
+              <TabsContent value="response" className="flex-1 min-h-0 mt-0">
+                <ResponseGraph result={result} inputType={inputType} />
+              </TabsContent>
+              <TabsContent value="poles" className="flex-1 min-h-0 mt-0">
+                <PoleZeroPlot poles={result?.metrics.poles ?? []} />
+              </TabsContent>
+            </Tabs>
           </div>
           {/* Bottom Panel */}
           <div className="p-4 border-t border-border bg-card/30">
@@ -75,7 +163,6 @@ export default function Workspace({ onBack }: WorkspaceProps) {
             onInputTypeChange={setInputType}
             timeRange={timeRange}
             onTimeRangeChange={setTimeRange}
-            onSimulate={handleSimulate}
           />
         </aside>
       </div>
