@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, ReferenceArea, ReferenceDot,
 } from "recharts";
 import type { SimulationResult } from "@/lib/controlSystems";
 
@@ -12,7 +12,6 @@ interface ResponseGraphProps {
 export default function ResponseGraph({ result, inputType }: ResponseGraphProps) {
   const data = useMemo(() => {
     if (!result) return [];
-    // Downsample for rendering
     const step = Math.max(1, Math.floor(result.t.length / 500));
     const points: { t: number; y: number }[] = [];
     for (let i = 0; i < result.t.length; i += step) {
@@ -22,6 +21,22 @@ export default function ResponseGraph({ result, inputType }: ResponseGraphProps)
   }, [result]);
 
   const title = inputType === "step" ? "Step Response" : "Impulse Response";
+
+  const settlingBand = useMemo(() => {
+    if (!result || inputType !== "step" || result.metrics.steadyStateValue == null) return null;
+    const ss = result.metrics.steadyStateValue;
+    if (Math.abs(ss) < 1e-10) return null;
+    const band = 0.02 * Math.abs(ss);
+    return { upper: ss + band, lower: ss - band };
+  }, [result, inputType]);
+
+  const peakPoint = useMemo(() => {
+    if (!result || result.metrics.peakValue == null || result.metrics.peakTime == null) return null;
+    return { t: parseFloat(result.metrics.peakTime.toFixed(4)), y: parseFloat(result.metrics.peakValue.toFixed(6)) };
+  }, [result]);
+
+  // Compute tick count based on time range
+  const tickCount = 8;
 
   return (
     <div className="h-full flex flex-col">
@@ -42,12 +57,15 @@ export default function ResponseGraph({ result, inputType }: ResponseGraphProps)
                 stroke="hsl(218 11% 65%)"
                 fontSize={11}
                 fontFamily="JetBrains Mono"
+                tickCount={tickCount}
+                tickFormatter={(v: number) => v.toFixed(2)}
                 label={{ value: "Time (s)", position: "insideBottom", offset: -10, fill: "hsl(218 11% 65%)", fontSize: 11 }}
               />
               <YAxis
                 stroke="hsl(218 11% 65%)"
                 fontSize={11}
                 fontFamily="JetBrains Mono"
+                tickFormatter={(v: number) => v.toFixed(2)}
                 label={{ value: "Amplitude", angle: -90, position: "insideLeft", offset: 5, fill: "hsl(218 11% 65%)", fontSize: 11 }}
               />
               <Tooltip
@@ -62,12 +80,34 @@ export default function ResponseGraph({ result, inputType }: ResponseGraphProps)
                 labelFormatter={(v) => `t = ${v}s`}
                 formatter={(v: number) => [v.toFixed(4), "y(t)"]}
               />
+              {/* Settling band ±2% */}
+              {settlingBand && (
+                <ReferenceArea
+                  y1={settlingBand.lower}
+                  y2={settlingBand.upper}
+                  fill="hsl(142 71% 45%)"
+                  fillOpacity={0.08}
+                  strokeOpacity={0}
+                />
+              )}
+              {/* Steady state reference line */}
               {inputType === "step" && result?.metrics.steadyStateValue != null && (
                 <ReferenceLine
                   y={result.metrics.steadyStateValue}
                   stroke="hsl(142 71% 45%)"
                   strokeDasharray="5 5"
                   strokeOpacity={0.6}
+                />
+              )}
+              {/* Peak marker */}
+              {peakPoint && (
+                <ReferenceDot
+                  x={peakPoint.t}
+                  y={peakPoint.y}
+                  r={5}
+                  fill="hsl(38 92% 50%)"
+                  stroke="hsl(38 92% 50%)"
+                  strokeWidth={2}
                 />
               )}
               <Line
