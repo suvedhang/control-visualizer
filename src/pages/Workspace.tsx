@@ -68,6 +68,7 @@ export default function Workspace({ onBack }: WorkspaceProps) {
             denominator={denominator}
             onNumeratorChange={setNumerator}
             onDenominatorChange={setDenominator}
+            defaultPreset="Second Order Underdamped"
           />
 
           {/* Parameter Mode Toggle */}

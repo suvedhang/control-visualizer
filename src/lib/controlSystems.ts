@@ -378,6 +378,7 @@ export const presetSystems: PresetSystem[] = [
   { name: 'Second Order Underdamped', numerator: '4', denominator: 's^2 + 1.2s + 4', description: 'ζ = 0.3, ωn = 2' },
   { name: 'Critically Damped', numerator: '4', denominator: 's^2 + 4s + 4', description: 'ζ = 1, ωn = 2' },
   { name: 'Overdamped System', numerator: '2', denominator: 's^2 + 5s + 2', description: 'ζ > 1' },
+  { name: 'Unstable System', numerator: '1', denominator: 's^2 - 4', description: 'Poles in RHP' },
 ];
 
 export function formatPole(pole: { real: number; imag: number }): string {

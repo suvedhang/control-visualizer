@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { presetSystems, type PresetSystem } from "@/lib/controlSystems";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -6,10 +7,14 @@ interface SystemInputProps {
   denominator: string;
   onNumeratorChange: (v: string) => void;
   onDenominatorChange: (v: string) => void;
+  defaultPreset?: string;
 }
 
-export default function SystemInput({ numerator, denominator, onNumeratorChange, onDenominatorChange }: SystemInputProps) {
+export default function SystemInput({ numerator, denominator, onNumeratorChange, onDenominatorChange, defaultPreset }: SystemInputProps) {
+  const [selectedPreset, setSelectedPreset] = useState(defaultPreset || "");
+
   const handlePreset = (name: string) => {
+    setSelectedPreset(name);
     const preset = presetSystems.find(p => p.name === name);
     if (preset) {
       onNumeratorChange(preset.numerator);
@@ -56,7 +61,7 @@ export default function SystemInput({ numerator, denominator, onNumeratorChange,
         <label className="text-xs text-muted-foreground font-mono mb-2 block tracking-wider uppercase">
           Preset Systems
         </label>
-        <Select onValueChange={handlePreset}>
+        <Select value={selectedPreset} onValueChange={handlePreset}>
           <SelectTrigger className="w-full bg-muted border-border font-mono text-sm">
             <SelectValue placeholder="Select a preset..." />
           </SelectTrigger>

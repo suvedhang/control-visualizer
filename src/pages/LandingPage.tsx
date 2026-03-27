@@ -15,13 +15,13 @@ interface LandingPageProps {
 
 export default function LandingPage({ onStart }: LandingPageProps) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden">
+    <div className="relative overflow-hidden">
       {/* SoftAurora background effect */}
       <div className="absolute inset-0 pointer-events-none">
         <SoftAurora />
       </div>
 
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6 max-w-3xl">
+      <div className="relative z-10 min-h-screen flex flex-col items-center justify-center text-center px-6 max-w-3xl mx-auto">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 mb-8 animate-slide-up" style={{ animationDelay: "0ms" }}>
           <div className="w-2 h-2 rounded-full bg-primary animate-pulse-glow" />
           <span className="text-xs font-mono text-primary tracking-wider">CONTROL SYSTEMS</span>
@@ -44,22 +44,21 @@ export default function LandingPage({ onStart }: LandingPageProps) {
         >
           Start Simulation →
         </Button>
+        <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-6 px-6 max-w-5xl w-full mb-8">
+          {concepts.map((c, i) => (
+            <div
+              key={c.label}
+              className="flex flex-col items-center gap-3 p-6 rounded-xl bg-card/50 panel-border backdrop-blur-sm animate-slide-up hover:bg-card/70 transition-colors"
+              style={{ animationDelay: `${400 + i * 100}ms`, animationFillMode: "both" }}
+            >
+              <c.icon className="w-6 h-6 text-primary" />
+              <span className="text-xs font-mono text-muted-foreground text-center leading-tight">{c.label}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className="relative z-10 mt-16 grid grid-cols-2 md:grid-cols-4 gap-6 px-6 max-w-5xl w-full mb-8">
-        {concepts.map((c, i) => (
-          <div
-            key={c.label}
-            className="flex flex-col items-center gap-3 p-6 rounded-xl bg-card/50 panel-border backdrop-blur-sm animate-slide-up hover:bg-card/70 transition-colors"
-            style={{ animationDelay: `${400 + i * 100}ms`, animationFillMode: "both" }}
-          >
-            <c.icon className="w-6 h-6 text-primary" />
-            <span className="text-xs font-mono text-muted-foreground text-center leading-tight">{c.label}</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="relative z-10 mt-20 px-6 max-w-5xl w-full pb-16">
+      <div className="relative z-10 mt-20 px-6 max-w-5xl w-full pb-16 mx-auto">
         <h2 className="text-center text-xs font-mono tracking-widest uppercase text-primary mb-16 font-semibold">Fundamental Equations</h2>
         <div className="space-y-8">
           {/* Transfer Function */}
